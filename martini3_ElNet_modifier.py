@@ -8,6 +8,7 @@ import os.path
 import argparse
 import sys
 import numpy as np
+import ast
 # import scipy as spy
 from scipy.spatial import distance
 
@@ -38,44 +39,50 @@ parser.add_argument('-m', dest = "requested_modifications", action='extend', typ
                     help = "Modifications will be done in the order that they are given.\n"
                     
                     "RI: Removes internal elastic networks. Examples:\n"
-                    "-m RI:245:282\n"
-                    "Removes all elastic networks between all residues from residue 245 to residue 282.\n"
-                    "-m RI:245:282-E:266:279\n"
-                    "Same as above except residue 266 to 279 are exempt from the selection.\n\n"
+                    "     " + "-m RI:245:282\n"
+                    "     " + "     " + "Removes all elastic networks between all residues from residue 245 to residue 282.\n"
+                    "     " + "-m RI:245:282-E:266:279\n"
+                    "     " + "     " + "Same as above except residue 266 to 279 are exempt from the selection.\n\n"
                     
                     "RE: Removes external elastic networks. Examples:\n"
-                    "-m RE:266:279\n"
-                    "Removes all elastic networks between any residue from 266 to 279 and all other residues.\n"
-                    "-m RE:266:279-E:270:275\n"
-                    "Same as above except residue 270 to 275 are exempt from the selection.\n"
-                    "-m RE:266:279-E:400:450\n"
-                    "Same as first example except residue 400 to 450 are exempt from the non-selected residues.\n\n"
+                    "     " + "-m RE:266:279\n"
+                    "     " + "     " + "Removes all elastic networks between any residue from 266 to 279 and all other residues.\n"
+                    "     " + "-m RE:266:279-E:270:275\n"
+                    "     " + "     " + "Same as above except residue 270 to 275 are exempt from the selection.\n"
+                    "     " + "-m RE:266:279-E:400:450\n"
+                    "     " + "     " + "Same as first example except residue 400 to 450 are exempt from the non-selected residues.\n\n"
                     
                     "RB: Removes elastic networks between two groups of residues. Examples:\n"
-                    "-m RB:30:244,283:500\n"
-                    "Removes all elastic network between the two groups of residues.\n"
-                    "(group 1: 30 to 244 and group 2: 283 to 500)\n"
-                    "-m RB:30:244,283:500-E:350:400\n"
-                    "Removes all elastic network between the two groups of residues.\n"
-                    "(group 1: 30 to 39 and 41 to 244 and group 2: 283 to 349 and 401 to 500)\n\n"
+                    "     " + "-m RB:30:244,283:500\n"
+                    "     " + "     " + "Removes all elastic network between the two groups of residues.\n"
+                    "     " + "     " + "(group 1: 30 to 244 and group 2: 283 to 500)\n"
+                    "     " + "-m RB:30:244,283:500-E:350:400\n"
+                    "     " + "     " + "Removes all elastic network between the two groups of residues.\n"
+                    "     " + "     " + "(group 1: 30 to 39 and 41 to 244 and group 2: 283 to 349 and 401 to 500)\n\n"
                     
-                    "RA: Removes all elastic networks associated with this selection.\n"
-                    "-m RA:30:244\n\n"
+                    "RA: Removes all elastic networks associated with this selection. Example:\n"
+                    "     " + "-m RA:30:244\n\n"
                     
-                    "AS: Add elastic networks between two groups of residues. Examples:\n"
-                    "-m AS:280:433-dis:0.95-fc:700\n"
-                    "Adds elastic networks between the two residues.\n"
-                    "dis designates the distance for the bond. If no distance is given, then it will be"
-                    "calculated based on pdb file.\n"
-                    "fc designates the force constant of the bond (default = 700)\n\n"
+                    "AS: Add elastic networks between two groups of residues. Example:\n"
+                    "     " + "-m AS:280:433-dis:0.95-fc:700\n"
+                    "     " + "     " + "Adds elastic networks between the two residues.\n"
+                    "     " + "     " + "dis designates the distance for the bond. If no distance is given, then it will be calculated based on pdb file.\n"
+                    "     " + "     " + "fc designates the force constant of the bond (default = 700)\n\n"
                     
-                    "AG: Add elastic networks for a group of residues. Examples:\n"
-                    "Requires pdb file. Distances will be based on said pdb file.\n"
-                    "-m AG:50:75-emax:0.85-emin:0.0-fc:700-replace:all-replaceonly:yes-E:300:350\n"
-                    "Generates elastic networks for all of the residues in the selection.\n"
-                    "emax, emin and fc set the maximum distance, minimum distance and force constant for bonds.\n"
-                    "replace:all designates that all existing networks should be replaced instead of skipped.\n"
-                    "replaceonly:yes designates that bonds should only be replaced (prevents addition of new bonds).\n")
+                    "AG: Add elastic networks for a group of residues. Requires pdb file. Distances will be based on said pdb file. Example:\n"
+                    "     " + "-m AG:50:75-emax:0.85-emin:0.0-fc:700-replace:all-replaceonly:yes-E:300:350\n"
+                    "     " + "     " + "Generates elastic networks for all of the residues in the selection.\n"
+                    "     " + "     " + "emax, emin and fc set the maximum distance, minimum distance and force constant for bonds.\n"
+                    "     " + "     " + "replace:all designates that all existing networks should be replaced instead of skipped.\n"
+                    "     " + "     " + "replaceonly:yes designates that bonds should only be replaced (prevents addition of new bonds).\n")
+
+### Whether to backup or overwrite files
+parser.add_argument("-backup", dest = "backup", default = "False",
+                    help = "Whether to backup or overwrite files.\n")
+
+### Whether to backup or overwrite files
+parser.add_argument("-debug", dest = "debug", default = "False",
+                    help = "Whether to print debug information.\n")
 
 ########################################## NOT IMPLEMENTED - Can be partially done with "-m AG" command
 ### ### Modify networks
@@ -134,14 +141,22 @@ log_removed_networks = [] ### Currently not printed to LOG file
 if args.log_name != False:
     create_log = True
     log_name = args.log_name
-    log_file.extend("Log file: " + log_name + "\n")
+    log_file.extend("Log file:" + "\n")
+    log_file.extend("     " + log_name + "\n")
 else:
     create_log = False
 
-log_file.extend("itp file: " + input_name + "\n")
-log_file.extend("Output file: " + output_name + "\n")
+log_file.extend("itp file:" + "\n")
+log_file.extend("     " + input_name + "\n")
+log_file.extend("Output file:" + "\n")
+log_file.extend("     " + output_name + "\n")
 if args.struc_name != False:
-    log_file.extend("Structure file: " + log_name + "\n")
+    log_file.extend("Structure file:" + "\n")
+    log_file.extend("     " + log_name + "\n")
+
+### Backup
+backup = bool(ast.literal_eval(args.backup))
+debug = bool(ast.literal_eval(args.debug))
 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### Parser Handling done
 
@@ -156,9 +171,13 @@ itp_file = file_reader(input_name)
 ### Finds the appropriate lines for ElNet modifications
 itp_separators_dict = {}
 atom_line_found = False
+backbone_bonds_line_found = False
 ElNet_line_found = False
 print("Processing itp file")
+current_section = False
 for line_number, line in enumerate(itp_file):
+    if line.lstrip().startswith("[") and line.rstrip().endswith("]"):
+        current_section = line.lstrip().rstrip().split("[")[1].split("]")[0].lstrip().rstrip()
     ### [:-1] is to remove the \n from all lines
     if "[ atoms ]" in line[:-1]:
         itp_separators_dict["atoms_start"] = line_number + 1
@@ -166,6 +185,15 @@ for line_number, line in enumerate(itp_file):
     if atom_line_found == True and line[:-1] == "":
         itp_separators_dict["atoms_end"] = line_number
         atom_line_found = False
+    
+    ### Used in case no "Rubber band" lines are found
+    if current_section == "bonds":
+        if "Backbone bonds" in line[:-1]:
+            itp_separators_dict["backbone_bonds_start"] = line_number + 1
+            backbone_bonds_line_found = True
+        if backbone_bonds_line_found == True and line[:-1] == "":
+            itp_separators_dict["backbone_bonds_end"] = line_number
+            backbone_bonds_line_found = False
     
     if "Rubber band" in line[:-1]:
         itp_separators_dict["ElNet_start"] = line_number + 1
@@ -187,15 +215,22 @@ for atom in itp_file[itp_separators_dict["atoms_start"]:itp_separators_dict["ato
         list_of_atom_numbers.append(atom_split[0])
 
 ### Creates list of existing ElNets and ensures that they are properly formatted
-ElNets = itp_file[itp_separators_dict["ElNet_start"]:itp_separators_dict["ElNet_end"]]
-w0 = max(len(line.split()[0]) for line in ElNets)
-w1 = max(len(line.split()[1]) for line in ElNets)
-w2 = max(len(line.split()[2]) for line in ElNets)
-w3 = max(len(line.split()[3]) for line in ElNets)
-w4 = max(len(line.split()[4]) for line in ElNets)
-ElNets_split = [line.split() for line in ElNets]
-ElNets = ['{i0: >{w0}} {i1: >{w1}} {i2: >{w2}} {i3: >{w3}} {i4: >{w4}}\n'.format(i0=i0, i1=i1, i2=i2, i3=i3, i4=i4, w0=w0, w1=w1, w2=w2, w3=w3, w4=w4)
-                    for i0, i1, i2, i3, i4 in ElNets_split]
+if "ElNet_start" in itp_separators_dict.keys() and "ElNet_end" in itp_separators_dict.keys():
+    ElNets = itp_file[itp_separators_dict["ElNet_start"]:itp_separators_dict["ElNet_end"]]
+    w0 = max(len(line.split()[0]) for line in ElNets)
+    w1 = max(len(line.split()[1]) for line in ElNets)
+    w2 = max(len(line.split()[2]) for line in ElNets)
+    w3 = max(len(line.split()[3]) for line in ElNets)
+    w4 = max(len(line.split()[4]) for line in ElNets)
+    ElNets_split = [line.split() for line in ElNets]
+    ElNets = [
+        '{i0: >{w0}} {i1: >{w1}} {i2: >{w2}} {i3: >{w3}} {i4: >{w4}}\n'.format(
+            i0=i0, i1=i1, i2=i2, i3=i3, i4=i4, w0=w0, w1=w1, w2=w2, w3=w3, w4=w4
+        )
+        for i0, i1, i2, i3, i4 in ElNets_split
+    ]
+else:
+    ElNets = []
 
 ### Creates list of coordinates for each atom if structure file is present and array of distances between atoms
 if struc_name != False:
@@ -228,27 +263,45 @@ if struc_name != False:
 ### ### ### ### ### ### ### ### Functions ### ### ### ### ### ### ### ###
 ### ### ### ### General functions ### ### ### ###
 ### Removes exemptions from atom list
-def exemptions_remover(atom_list, exemptions):
+def exemptions_remover(exemptions, atom_list = [], residue_list = []):
     '''
     Removes atoms from atom_list based on the atoms that are present in exemptions.
     atom_list is a list containing atom numbers.
     exemptions: [(res1, res2)]: A list containing sets of residues that should be excluded from the selection.
     '''
-    ### Finds all the atoms that are exempt from the selection
-    exemptions_list = []
-    for exemption in exemptions:
-        start_res, end_res = exemptions
-        if int(start_res) > int(end_res):
-            start_res, end_res = end_res, start_res
-        atom_exempt_list = [residue_dict[str(res)] for res in range(int(start_res), int(end_res) + 1)]
-        exemptions_list.extend(atom_exempt_list)
+    assert atom_list == [] or residue_list == [], "Only one of 'atom_list' and 'residue_list' may be given to 'exemptions_remover'"
 
-    ### Removes exempt atoms from selection
-    for atom_ex in exemptions_list:
-        if atom_ex in atom_list:
-            atom_list.remove(atom_ex)
+    if atom_list:
+        ### Finds all the atoms that are exempt from the selection
+        exemptions_list = []
+        for exemption in exemptions:
+            start_res, end_res = exemptions
+            if int(start_res) > int(end_res):
+                start_res, end_res = end_res, start_res
+            atom_exempt_list = [residue_dict[str(res)] for res in range(int(start_res), int(end_res) + 1)]
+            exemptions_list.extend(atom_exempt_list)
+
+        ### Removes exempt atoms from selection
+        for atom_ex in exemptions_list:
+            if atom_ex in atom_list:
+                atom_list.remove(atom_ex)
+        return atom_list
     
-    return atom_list
+    elif residue_list:
+        ### Finds all the atoms that are exempt from the selection
+        exemptions_list = []
+        for exemption in exemptions:
+            start_res, end_res = exemptions
+            if int(start_res) > int(end_res):
+                start_res, end_res = end_res, start_res
+            exemptions_list.extend(list(range(int(start_res), int(end_res) + 1)))
+
+        ### Removes exempt atoms from selection
+        for res_ex in exemptions_list:
+            if res_ex in residue_list:
+                residue_list.remove(res_ex)
+        return residue_list
+    
 
 ### Removes networks from ElNets
 def network_remover(remover_list):
@@ -257,7 +310,7 @@ def network_remover(remover_list):
     remover_list is a list containing tuples of the two atoms for which networks should be removed.
     (atom_1, atom_2)
     '''
-    log_modifications.append("Will look for " + str(len(remover_list)) + " potential elastic network bonds\n")
+    log_modifications.append("     " + "Will look for " + str(len(remover_list)) + " potential elastic network bonds\n")
     print(log_modifications[-1][:-1])
     
     elastic_remove_counter = 0
@@ -268,7 +321,7 @@ def network_remover(remover_list):
             ElNets.remove(rubber_band)
             log_removed_networks.append(rubber_band)
     
-    log_modifications.append(str(elastic_remove_counter) + " elastic network bonds were removed\n")
+    log_modifications.append("     " + "     " + str(elastic_remove_counter) + " elastic network bonds were removed\n")
     print(log_modifications[-1])
 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### Removals
@@ -302,7 +355,7 @@ def remove_external(RE_dict):
     '''
     Removes external elastic networks for a set of residues.
     RE_dict contains the followings keys and values:
-    "RE": (res1, res2): A tuple containing two two strings.
+    "RE": (res1, res2): A tuple containing two strings.
     The set of residues for which external networks between should be removed.
     "E": [(res1,res2)]: A list containing sets of residues that should be excluded from the selection.
     '''
@@ -376,13 +429,13 @@ def add_single(AS_dict):
     
     atom1, atom2 = residue_dict[res1], residue_dict[res2]
     
-    log_modifications.append(" ".join(["Preparing to add a bond between atom", atom1, "and", atom2]) + "\n")
+    log_modifications.append("     " + " ".join(["Preparing to add a bond between atom", atom1, "and", atom2]) + "\n")
     print(log_modifications[-1][:-1])
     
     ### Distance
     if AS_dict["distance"] == "automatic":
         distance = distances_dict[(atom1, atom2)]
-        log_modifications.append("No distance was given. Setting it to " + distance + "\n")
+        log_modifications.append("     " + "     " + "No distance was given. Setting it to " + distance + "\n")
         print(log_modifications[-1][:-1])
     else:
         distance = AS_dict["distance"]
@@ -390,7 +443,7 @@ def add_single(AS_dict):
     ### Force constant
     if AS_dict["fc"] == "default":
         force_constant = "700.0"
-        log_modifications.append("No force constant given. Setting it to " + force_constant + "\n")
+        log_modifications.append("     " + "     " + "No force constant given. Setting it to " + force_constant + "\n")
         print(log_modifications[-1][:-1])
     else:
         if "." in AS_dict["fc"]:
@@ -399,7 +452,7 @@ def add_single(AS_dict):
             force_constant = AS_dict["fc"] + ".0"
 
     ### Checking if bond already exists
-    log_modifications.append("Checking for existing bond to be replaced.\n")
+    log_modifications.append("     " + "     " + "Checking for existing bond to be replaced.\n")
     print(log_modifications[-1][:-1])
     
     replaced_questionmark = False
@@ -408,12 +461,13 @@ def add_single(AS_dict):
         if (rbs[0], rbs[1]) == (atom1, atom2):
             ElNets[line] = " ".join([atom1, atom2, "1", distance, force_constant]) + "\n"
             replaced_questionmark = True
-            log_modifications.append("Existing bond found. Replacing it.\n")
+            log_modifications.append("     " + "     " + "     " + "Existing bond found. Replacing it.\n")
             print(log_modifications[-1][:-1])
             break
+    
     if replaced_questionmark == False:
         ElNets.append(" ".join([atom1, atom2, "1", distance, force_constant]) + "\n")
-        log_modifications.append("No existing bond found. Creating a new one.\n")
+        log_modifications.append("     " + "     " + "     " + "     " + "No existing bond found. Creating a new one.\n")
         print(log_modifications[-1][:-1])
 
 ### ### ### Generates bonds for a range of residues
@@ -421,7 +475,7 @@ def add_generated(AG_dict):
     '''
     Creates new elastic networks for all residues in the selection.
     AG_dict contains the followings keys and values:
-    "AG": (res1, res2): A tuple containing two strings.
+    "resgroups": [(res1, res2)]: A list containing tuples of residues that should be included from the selection.
     The set of residues for which new networks should be created.
     "emax": A string containing a number.
     Sets the upper distance limit for generated elastic networks. "Default" = 0.9
@@ -432,19 +486,50 @@ def add_generated(AG_dict):
     "replace": A string containing "all", "none" or a list of tuples containg either two strings (res1, res2)
     or two tuples with two strings each. One tuple designates residues for which all networks should be replaced
     while two tuples designates sets of residues for which networks between should be replaced.
-    "E": [(res1,res2)]: A list containing sets of residues that should be excluded from the selection.
+    "E": [(res1,res2)]: A list containing tuples of residues that should be excluded from the selection.
     '''
-    start_res, end_res = AG_dict["AG"]
-    if int(start_res) > int(end_res):
-        start_res, end_res = end_res, start_res
-    
+    if debug:
+        print("    ", "DEBUG PRINTS:")
+
+    residues_internal_in_selection = []
+    residues_between_in_selection  = []
+    for resgroup in AG_dict["resgroups"]:
+        if len(resgroup) == 2:
+            for start_res, end_res in AG_dict["resgroups"]:
+                if int(start_res) > int(end_res):
+                    start_res, end_res = end_res, start_res
+                residues_internal_in_selection.extend(list(range(int(start_res), int(end_res) + 1)))
+        if len(resgroup) == 4:
+            for start_res1, end_res1, start_res2, end_res2 in AG_dict["resgroups"]:
+                if int(start_res1) > int(end_res1):
+                    start_res1, end_res1 = end_res1, start_res1
+                if int(start_res2) > int(end_res2):
+                    start_res2, end_res2 = end_res2, start_res2
+                residues_between_in_selection.append(((list(range(int(start_res1), int(end_res1) + 1))), (list(range(int(start_res2), int(end_res2) + 1)))))
+    if debug:
+        print("    ", "    ", "len(residues_internal_in_selection)", len(residues_internal_in_selection))
+        print("    ", "    ", "len(residues_between_in_selection) ", [(len(residues[0]), len(residues[1])) for residues in residues_between_in_selection])
+
     ### ### Handle replacements
-    replace_any_list = []
-    replace_pair_list = []
+    replace_single_list  = []
+    replace_pair_list    = []
     
     ### List of atoms where networks should be replaced
     if AG_dict["replace"] == ["all"]:
-        replace_any_list.extend([residue_dict[str(res)] for res in range(int(start_res), int(end_res) + 1)])
+        for resgroup in AG_dict["resgroups"]:
+            if len(resgroup) == 2:
+                for i, (start_res, end_res) in enumerate(AG_dict["resgroups"]):
+                    if int(start_res) > int(end_res):
+                        start_res, end_res = end_res, start_res
+                    replace_single_list.extend([residue_dict[str(res)] for res in range(int(start_res), int(end_res) + 1)])
+            if len(resgroup) == 4:
+                for start_res1, end_res1, start_res2, end_res2 in AG_dict["resgroups"]:
+                    if int(start_res1) > int(end_res1):
+                        start_res1, end_res1 = end_res1, start_res1
+                    if int(start_res2) > int(end_res2):
+                        start_res2, end_res2 = end_res2, start_res2
+                    replace_single_list.extend([residue_dict[str(res)] for res in range(int(start_res1), int(end_res1) + 1)])
+                    replace_single_list.extend([residue_dict[str(res)] for res in range(int(start_res2), int(end_res2) + 1)])
     elif AG_dict["replace"] == ["none"]: ### Do nothing if "none"
         pass
     else: # len(AG_dict["replace"]) > 1:
@@ -453,7 +538,8 @@ def add_generated(AG_dict):
                 res1, res2 = replacement
                 if res2 > res1:
                     res1, res2 = res2, res1
-                replace_any_list.extend([residue_dict[str(res)] for res in range(int(res1), int(res2) + 1)])
+                replace_single_list.extend([residue_dict[str(res)] for res in range(int(res1), int(res2) + 1)])
+            ### Two groups of residues
             elif len(replacement) == 2:
                 res1, res2, res3, res4 = replacement
                 if res2 > res1:
@@ -464,54 +550,56 @@ def add_generated(AG_dict):
                 replace_pair_list_part2 = [residue_dict[str(res)] for res in range(int(res3), int(res4) + 1)]
                 replace_pair_list.extend([(resA, resB) for resA in replace_pair_list_part1 for resB in replace_pair_list_part2])
                 replace_pair_list.extend([(resA, resB) for resA in replace_pair_list_part2 for resB in replace_pair_list_part1])
-    
-    ### ### Handle standard atom and residue selection processing
-    ### Finds all the atoms and residues in the selection
-    res_list_selection = [int(resid) for resid in range(int(start_res), int(end_res) + 1)]
-    atom_list_selection = [residue_dict[str(res)] for res in range(int(start_res), int(end_res) + 1)]
-    
-    ### Finds all atoms in the system
-    atom_list_all = [residue_dict[str(res)] for res in list(residue_dict.keys())]
-    res_list_all = [int(resid) for resid in list(residue_dict.keys())]
+    replace_single_list = [str(val) for val in sorted(list(set([int(val) for val in replace_single_list])))]
+    if debug:
+        print("    ", "    ", "len(replace_single_list)           ", len(replace_single_list))
+        print("    ", "    ", "len(replace_pair_list)             ", len(replace_pair_list))
     
     ### Removes all the atoms that are exempt from the selection
     if AG_dict["E"] != []:
         for exemptions in AG_dict["E"]:
-            atom_list_selection = exemptions_remover(atom_list = atom_list_selection, exemptions = exemptions)
-            atom_list_all = exemptions_remover(atom_list = atom_list_all, exemptions = exemptions)
+            residues_internal_in_selection = exemptions_remover(residue_list = residues_internal_in_selection, exemptions = exemptions)
+            for gi, (resgroup1, resgroup2) in enumerate(residues_between_in_selection):
+                residues_between_in_selection[gi][0] = exemptions_remover(residue_list = resgroup1, exemptions = exemptions)
+                residues_between_in_selection[gi][1] = exemptions_remover(residue_list = resgroup2, exemptions = exemptions)
+    if debug:
+        print("    ", "    ", "len(residues_internal_in_selection)", len(residues_internal_in_selection))
+        print("    ", "    ", "len(residues_between_in_selection) ", [(len(residues[0]), len(residues[1])) for residues in residues_between_in_selection])
+
+    ### Creates residue pairs
+    residue_pairs_in_selection = []
+    for ri, res1 in enumerate(residues_internal_in_selection):
+        ### Ensures that residues are more than 2 residues apart ("i -> i+1 and i -> i+2" rule)
+        rest_of_residues_in_selection = [res2 for res2 in residues_internal_in_selection[ri:] if (int(res2) - int(res1) > 2)]
+        residue_pairs_in_selection.extend([(res1, res2) for res2 in rest_of_residues_in_selection])
     
-    atom_lists_combined = []
-    atom_lists_combined.extend([(atom1, atom2) for atom1 in atom_list_selection for atom2 in atom_list_all if atom1 != atom2])
-    atom_lists_combined.extend([(atom1, atom2) for atom1 in atom_list_all for atom2 in atom_list_selection if atom1 != atom2])
-    
-    ### Ensuring that residues are more than 2 residues apart ("i -> i+1 and i -> i+2" rule)
-    addition_res_list = []
-    addition_res_list.extend([(res1, res2) for res1 in res_list_selection for res2 in res_list_all])
-    addition_res_list.extend([(res1, res2) for res1 in res_list_all for res2 in res_list_selection])
-    addition_atom_list = sorted(list(set(sorted([(residue_dict[str(res1)], residue_dict[str(res2)])
-                                                for res1, res2 in addition_res_list
-                                                if (res1 < res2 - 2)],
-                                            key=lambda x: (int(x[0]), int(x[1])))
-                                        )
-                                    ),
-                                key=lambda x: (int(x[0]), int(x[1])))
-    
-    ### ### Handles combining above sections
+    for resgroup1, resgroup2 in residues_between_in_selection:
+        for res1 in resgroup1:
+            rest_of_residues_in_selection = [res2 for res2 in resgroup2 if (int(res2) - int(res1) > 2)]
+            residue_pairs_in_selection.extend([(res1, res2) for res2 in rest_of_residues_in_selection])
+    if debug:
+        print("    ", "    ", "len(residue_pairs_in_selection)    ", len(residue_pairs_in_selection))
+
+    atom_pairs_in_selection = [(residue_dict[str(res1)], residue_dict[str(res2)]) for res1, res2 in residue_pairs_in_selection]
+    if debug:
+        print("    ", "    ", "len(atom_pairs_in_selection)       ", len(atom_pairs_in_selection))
+
     ### Creates the list of atom connections taking into account both exemptions, replacements and the no "i -> i+1 and i -> i+2" connections rule
-    ### This is somewhat slow
-    addition_list = []
+    addition_list    = []
     replacement_list = []
-    for atom1, atom2 in addition_atom_list: ### Atoms from no "i -> i+1 and i -> i+2" residue connections rule
-        if (atom1, atom2) in atom_lists_combined: ### Checks if atom bond is in bonds to be created
-            if (atom1, atom2) in [(line.split()[0], line.split()[1]) for line in ElNets]: ### Cecks if bond already exists
-                if len(replace_any_list) > 0 and (atom1 in replace_any_list or atom2 in replace_any_list):
-                    replacement_list.append((atom1, atom2))
-                elif len(replace_pair_list) > 0 and (atom1, atom2) in replace_pair_list:
-                    replacement_list.append((atom1, atom2))
-            elif AG_dict["replaceonly"] != "yes":
-                ### If bond does not already exist then create new one and only replacements not active
-                addition_list.append((atom1, atom2))
-    
+    for atom1, atom2 in atom_pairs_in_selection:
+        if (atom1, atom2) in [(line.split()[0], line.split()[1]) for line in ElNets]: ### Checks if bond already exists
+            if len(replace_single_list) > 0 and (atom1 in replace_single_list or atom2 in replace_single_list):
+                replacement_list.append((atom1, atom2))
+            elif len(replace_pair_list) > 0 and (atom1, atom2) in replace_pair_list:
+                replacement_list.append((atom1, atom2))
+        elif AG_dict["replaceonly"] != "yes":
+            ### If bond does not already exist then create new one and only replacements not active
+            addition_list.append((atom1, atom2))
+    if debug:
+        print("    ", "    ", "len(replacement_list)              ", len(replacement_list))
+        print("    ", "    ", "len(addition_list)                 ", len(addition_list))
+        
     ### ### Handle distances, pre-existing bonds, upper and lower limits and force constants
     ### Ensuring the force constant has a decimal point for consistency
     if "." in AG_dict["fc"]:
@@ -544,10 +632,9 @@ def add_generated(AG_dict):
                     replacement_counter += 1
                     continue
     
-    
-    log_modifications.append("Added " + str(new_additions_counter) + " new elastic network bonds\n")
+    log_modifications.append("     " + "Added " + str(new_additions_counter) + " new elastic network bonds\n")
     print(log_modifications[-1][:-1])
-    log_modifications.append("Replaced " + str(replacement_counter) + " elastic network bonds\n")
+    log_modifications.append("     " + "Replaced " + str(replacement_counter) + " elastic network bonds\n")
     print(log_modifications[-1][:-1])
 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###    
@@ -556,7 +643,7 @@ def add_generated(AG_dict):
 log_settings.append("Following modifications were requested and will be processed in the shown order:\n")
 print(log_settings[-1])
 for mod in requested_modifications:
-    log_settings.append(mod + "\n")
+    log_settings.append("     " + mod + "\n")
     log_modifications.append("\nWorking on: " + mod + "\n")
     print(log_modifications[-1][:-1])
     ### Run the respective modification function
@@ -630,6 +717,7 @@ for mod in requested_modifications:
     if identifier == "AG": ### Example: "AG:50:75-emax:0.85-emin:0.5-fc:700-replace:60:65-E:300:350"
         AG_dict = {}
         exemptions = []
+        AG_dict["resgroups"] = []
         AG_dict["emax"] = "0.9" ### Default = 0.9
         AG_dict["emin"] = "0.0" ### Default = 0.0
         AG_dict["fc"] = "700" ### Default = 700
@@ -639,8 +727,8 @@ for mod in requested_modifications:
         for part in mod.split("-"):
             command, settings = part.split(":", maxsplit = 1)
             if command == "AG":
-                res1, res2 = settings.split(":")
-                AG_dict["AG"] = (res1, res2)
+                residues = tuple(settings.split(":"))
+                AG_dict["resgroups"].append(residues)
             if command == "E":
                 res1, res2 = settings.split(":")
                 exemptions.append((res1, res2))
@@ -689,8 +777,15 @@ ElNets_formatted = ['{i0: >{w0}} {i1: >{w1}} {i2: >{w2}} {i3: >{w3}} {i4: >{w4}}
 
 ElNets_sorted = sorted(ElNets_formatted, key=lambda x: (x[0], x[1]))
 ### Inserting new elastic network system file into output itp file
-before = itp_file[:itp_separators_dict["ElNet_start"]]
-after = itp_file[itp_separators_dict["ElNet_end"]:]
+if "ElNet_start" in itp_separators_dict.keys() and "ElNet_end" in itp_separators_dict.keys():
+    before = itp_file[:itp_separators_dict["ElNet_start"]]
+    after = itp_file[itp_separators_dict["ElNet_end"]:]
+else:
+    ### In case no "Rubber band" in original itp file.
+    ### Places elastic network after "Backbone bonds" section
+    before = itp_file[:itp_separators_dict["backbone_bonds_end"]] + ["\n", "; Rubber band\n"]
+    after = itp_file[itp_separators_dict["backbone_bonds_end"]:]
+
 new_itp_file = before + ElNets_sorted + after
 
 ### Checks if output file already exists and backs it up
@@ -702,7 +797,8 @@ def backupper(output_file_name):
         for i in range(len(output_file_split) - 1):
             output_path += output_file_split[i] + "/"
     if os.path.exists(output_file_name):
-        print("File " + output_file_name + " already exists. Backing it up")
+        print("File " + output_file_name + " already exists.")
+        print("    ", "Backing it up")
         number = 1
         while True:
             if os.path.exists(output_path + "#" + output_name + "." + str(number) + "#"):
@@ -713,8 +809,10 @@ def backupper(output_file_name):
 
 print("\n")
 ### Output itp file
-backupper(output_name)
-print("Writing output file: " + output_name)
+if backup:
+    backupper(output_name)
+print("Writing output file:")
+print("    ", output_name)
 new_file = open(output_name, "w")
 for line in new_itp_file:
     new_file.write(line)
@@ -722,8 +820,10 @@ new_file.close()
 
 ### Output log file
 if create_log == True:
-    backupper(log_name)
-    print("Writing log file: " + output_name)
+    if backup:
+        backupper(log_name)
+    print("Writing log file:")
+    print("    ", output_name)
     new_file = open(log_name, "w")
     for line in log_file:
         new_file.write(line)
